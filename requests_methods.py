@@ -8,6 +8,7 @@ class ZKTeco:
 		self.password = ""
 		self.domain = ""
 		self.cookies = None
+		self.timeout = 3
 		self.r = None
 		self.read_conf()
 
@@ -35,10 +36,10 @@ class ZKTeco:
 			for block in fichier.read().split("["):
 				if block.startswith("zkteco"):
 					conf = self.purify_conf(block)
-					self.username = conf["username"]
-					self.userpwd = conf["userpwd"]
-					self.domain = conf["domain"]
-					# timeout = float(conf["timeout"])
+					self.username = conf.get("username")
+					self.userpwd = conf.get("userpwd")
+					self.domain = conf.get("domain")
+					self.timeout = float(conf.get("timeout", 3))
 					break
 			if(conf == ""):
 				raise Exception("settings.conf [zkteco] session not valid")
@@ -48,9 +49,15 @@ class ZKTeco:
 			"username":self.username,
 			"userpwd":self.userpwd
 		}
-		self.r = requests.get("http://"+self.domain)
+		try:
+			self.r = requests.get("http://"+self.domain, timeout=self.timeout)
+		except:
+			return {"erreur": "une erreur de connectivité est survenue"}
 		self.cookies = self.r.cookies
-		self.r = requests.post("http://"+self.domain+"/csl/check", data=logins, cookies=self.cookies)
+		try:
+			self.r = requests.post("http://"+self.domain+"/csl/check", data=logins, cookies=self.cookies, timeout=self.timeout)
+		except:
+			return {"erreur": "une erreur de connectivité est survenue"}
 
 	def logs(self, id_user, sdate="2020-05-25", edate="2020-05-31", tryout=True) ->str:
 		api_request = {
@@ -59,8 +66,11 @@ class ZKTeco:
 			"period":4,
 			"uid":id_user,
 		}
-		# self.r = requests.post("http://"+self.domain+"/csl/query?action=run", data=api_request, cookies=self.cookies)
-		self.r = requests.post("http://"+self.domain+"/csl/query?action=run", data=api_request, cookies=self.cookies)
+		# self.r = requests.post("http://"+self.domain+"/csl/query?action=run", data=api_request, cookies=self.cookies, timeout=self.timeout)
+		try:
+			self.r = requests.post("http://"+self.domain+"/csl/query?action=run", data=api_request, cookies=self.cookies, timeout=self.timeout)
+		except:
+			return {"erreur": "une erreur de connectivité est survenue"}
 		if(self.r.content.startswith(b"HTTP") and tryout):
 			print("======= NEW SESSION =======")
 			self.create_connection()
@@ -84,8 +94,10 @@ class ZKTeco:
 			"last":last if last else 1000
 		}
 
-		self.r = requests.get("http://"+self.domain+"/csl/user", params=data, cookies=self.cookies)
-		print(self.r.raw)
+		try:
+			self.r = requests.get("http://"+self.domain+"/csl/user", params=data, cookies=self.cookies, timeout=self.timeout)
+		except:
+			return {"erreur": "une erreur de connectivité est survenue"}
 
 		if(self.r.content.startswith(b"HTTP") and tryout):
 			self.create_connection()
