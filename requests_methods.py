@@ -1,4 +1,4 @@
-import os, requests, json
+import os, requests, json, re
 from bs4 import BeautifulSoup
 
 class ZKTeco:
@@ -12,16 +12,21 @@ class ZKTeco:
 		self.read_conf()
 
 	def purify_conf(self, block: str) -> dict:
-		block_list = block\
-			.replace("zkteco]\n", "")\
-			.replace("\n", "=")\
-			.replace("\"","")\
-			.replace("\'", "")\
-			.strip().split("=")
+		# block_list = block\
+		block = block.replace("zkteco]\n", "")
+		# 	.replace("\n", "=")\
+		# 	.replace("\"","")\
+		# 	.replace("\'", "")\
+		# 	.strip().split("=")
 
 		conf = dict()
-		while block_list:
-			conf[block_list.pop(0).strip()] = block_list.pop(1).strip()
+		for line in block.splitlines():
+			line_content = re.search(r'(?P<key>\w+)[ ]*[=]["]?(?P<value>(\w+[.]?)+)["]?', line)
+			try:
+				line_content = line_content.groupdict()
+				conf[line_content.get("key")] = line_content.get("value")
+			except:
+				continue
 		return conf
 
 	def read_conf(self) -> None:
@@ -70,7 +75,7 @@ class ZKTeco:
 			for i, value in enumerate(row.find_all("td")):
 				new_data[colums[i]] = value.text
 			data.append(new_data)
-		return json.dumps(data)
+		return data
 		# return str(self.r.content)
 
 	def users(self, first=None, last=None, tryout=True) ->str:
@@ -83,16 +88,13 @@ class ZKTeco:
 		print(self.r.raw)
 
 		if(self.r.content.startswith(b"HTTP") and tryout):
-			print("======= NEW SESSION =======")
 			self.create_connection()
 			return self.users(first, last, tryout=False)
 
 		soup = BeautifulSoup(self.r.content).find("div", class_="t_i")
-
 		soup_table = soup.find_all("tr")
 		data = []
 		colums = [x.text for x in soup_table.pop(0).find_all('td')]
-
 		for row in soup_table:
 			new_data = {}
 			for i, value in enumerate(row.find_all("td")):
@@ -103,5 +105,5 @@ class ZKTeco:
 					continue
 				new_data[colums[i]] = value.text	
 			data.append(new_data)
-		return json.dumps(data)
+		return data
 		# return str(self.r.content)
